@@ -161,6 +161,7 @@ build{
         'MotorControl/arm_sin_f32.c',
         'MotorControl/arm_cos_f32.c',
         'MotorControl/low_level.cpp',
+        'MotorControl/pwm_input.cpp',
         'MotorControl/nvm.c',
         'MotorControl/axis.cpp',
         'MotorControl/motor.cpp',
