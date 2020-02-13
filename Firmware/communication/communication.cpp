@@ -75,9 +75,10 @@ extern "C" {
 struct DebugInfo {
   const char *file;
   const char *msg;
+  uint32_t time;
   int line;
+  osThreadId thread;
   // TODO: debug level
-  // TODO: timestamp
 };
 
 // Number of dropped debug messages.
@@ -229,13 +230,25 @@ void communication_task(void * ctx) {
         // start_can_server(can1_ctx, CAN1, serial_number);
     }
 
+    // We do all the debug output on this thread, since string
+    // formatting and conversion is expensive, and debug output is
+    // "bursty".
     for (;;) {
       osEvent event = osMailGet(debug_queue, osWaitForever);
       if (event.status == osEventMail) {
 	DebugInfo *info = reinterpret_cast<DebugInfo *>(event.value.p);
-	printf("debug: %s %d %s\n", info->file, info->line, info->msg);
+	printf(
+	       "debug: %p %lu %s %d %s\n",
+	       (void *) info->thread,
+	       info->time,
+	       info->file,
+	       info->line,
+	       info->msg
+	       );
 	osMailFree(debug_queue, info);
       }
+
+      // TODO: warn about elided debug messages.
     }
 }
 
@@ -267,7 +280,9 @@ extern "C" {
 
     info->file = file;
     info->line = line;
+    info->time = osKernelSysTick();
     info->msg = msg;
+    info->thread = osThreadGetId();
 
     if (osMailPut(debug_queue, info) != osOK) {
       debug_dropped++;
