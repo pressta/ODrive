@@ -68,6 +68,24 @@ volatile bool endpoint_list_valid = false;
 
 static uint32_t test_property = 0;
 
+
+/* Message queue for debug printing ******************************************/
+
+extern "C" {
+struct DebugInfo {
+  const char *file;
+  const char *msg;
+  int line;
+  // TODO: debug level
+  // TODO: timestamp
+};
+
+// Number of dropped debug messages.
+int debug_dropped = 0;
+osMailQDef(debug_queue, 24, DebugInfo);
+osMailQId debug_queue;
+}
+
 /* Private function prototypes -----------------------------------------------*/
 
 auto make_protocol_definitions(PWMMapping_t& mapping) {
@@ -82,6 +100,8 @@ auto make_protocol_definitions(PWMMapping_t& mapping) {
 
 void init_communication(void) {
     printf("hi!\r\n");
+
+    debug_queue = osMailCreate(osMailQ(debug_queue), NULL);
 
     // Start command handling thread
     osThreadDef(task_cmd_parse, communication_task, osPriorityNormal, 0, 8000 /* in 32-bit words */); // TODO: fix stack issues
@@ -210,7 +230,12 @@ void communication_task(void * ctx) {
     }
 
     for (;;) {
-        osDelay(1000); // nothing to do
+      osEvent event = osMailGet(debug_queue, osWaitForever);
+      if (event.status == osEventMail) {
+	DebugInfo *info = reinterpret_cast<DebugInfo *>(event.value.p);
+	printf("debug: %s %d %s\n", info->file, info->line, info->msg);
+	osMailFree(debug_queue, info);
+      }
     }
 }
 
@@ -227,4 +252,26 @@ int _write(int file, const char* data, int len) {
     uart4_stream_output_ptr->process_bytes((const uint8_t *)data, len, nullptr);
 #endif
     return len;
+}
+
+
+extern "C" {
+  void debug(const char *file, int line, const char *msg) {
+    DebugInfo *info = reinterpret_cast<DebugInfo *>(osMailAlloc(debug_queue, 0));
+
+    if (!info) {
+      // XXX: use atomics.
+      debug_dropped++;
+      return;
+    }
+
+    info->file = file;
+    info->line = line;
+    info->msg = msg;
+
+    if (osMailPut(debug_queue, info) != osOK) {
+      debug_dropped++;
+      return;
+    }
+  }
 }

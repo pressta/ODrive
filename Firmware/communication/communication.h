@@ -22,6 +22,9 @@ extern const uint8_t hw_version_variant;
 
 void init_communication(void);
 void communication_task(void * ctx);
+void debug(const char *file, int line, const char *msg);
+
+#define DEBUG(msg) debug(__FILE__, __LINE__, msg)
 
 #ifdef __cplusplus
 }
