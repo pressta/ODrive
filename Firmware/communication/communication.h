@@ -9,6 +9,47 @@
 #include <functional>
 #include <limits>
 
+
+// A debug token is a handle to a partial debug message.
+class DebugToken {
+public:
+  // You obtain a debug token via this static method
+  static DebugToken begin(const char *file, int line);
+
+  // You append values via std::ostream-style << operator chaining.
+  DebugToken &operator<< (char value);
+  // *** Be especially careful here: do not pass a pointer to a
+  // stack-allocated string! ***
+  DebugToken &operator<< (const char *value);
+  DebugToken &operator<< (int value);
+  DebugToken &operator<< (unsigned int value);
+  DebugToken &operator<< (float value);
+
+  // And the message is written when the token goes out of scope.
+  ~DebugToken();
+
+  // Handles sending debug messages
+  static void loop();
+
+  // Handles initializing debug context.
+  static void init();
+
+private:
+  // A token just wraps some opaque id.
+  void *id;
+
+  // To keep things sane, the constructor is private. You can only
+  // obtain a token via DebugToken::begin().
+  DebugToken(void *id) : id(id) {}
+
+  // Internal helper function.
+  template <typename T> DebugToken &debug_impl(T callable);
+};
+
+
+#define DEBUG() DebugToken::begin(__FILE__, __LINE__)
+
+
 extern "C" {
 #endif
 
@@ -22,9 +63,7 @@ extern const uint8_t hw_version_variant;
 
 void init_communication(void);
 void communication_task(void * ctx);
-void debug(const char *file, int line, const char *msg);
 
-#define DEBUG(msg) debug(__FILE__, __LINE__, msg)
 
 #ifdef __cplusplus
 }
