@@ -211,6 +211,7 @@ bool Axis::run_lockin_spin(const LockinConfig_t &lockin_config) {
     // Spiral up current for softer rotor lock-in
     lockin_state_ = LOCKIN_STATE_RAMP;
     float x = 0.0f;
+
     run_control_loop([&]() {
         float phase = wrap_pm_pi(lockin_config.ramp_distance * x);
         float I_mag = lockin_config.current * x;
@@ -315,6 +316,27 @@ bool Axis::run_idle_loop() {
     return check_for_errors();
 }
 
+static const char *axis_state_to_str(Axis::State_t s) {
+  switch (s) {
+#define ENUM_STR(n) case Axis::n: return #n
+    ENUM_STR(AXIS_STATE_UNDEFINED);
+    ENUM_STR(AXIS_STATE_IDLE);
+    ENUM_STR(AXIS_STATE_STARTUP_SEQUENCE);
+    ENUM_STR(AXIS_STATE_FULL_CALIBRATION_SEQUENCE);
+    ENUM_STR(AXIS_STATE_MOTOR_CALIBRATION);
+    ENUM_STR(AXIS_STATE_SENSORLESS_CONTROL);
+    ENUM_STR(AXIS_STATE_ENCODER_INDEX_SEARCH);
+    ENUM_STR(AXIS_STATE_ENCODER_OFFSET_CALIBRATION);
+    ENUM_STR(AXIS_STATE_CLOSED_LOOP_CONTROL);
+    ENUM_STR(AXIS_STATE_LOCKIN_SPIN);
+    ENUM_STR(AXIS_STATE_ENCODER_DIR_FIND);
+#undef ENUM_STR
+  }
+
+  return "AXIS_STATE_INVALID";
+}
+
+
 // Infinite loop that does calibration and enters main control loop as appropriate
 void Axis::run_state_machine_loop() {
 
@@ -331,10 +353,13 @@ void Axis::run_state_machine_loop() {
 
     // arm!
     motor_.arm();
-    
+
     for (;;) {
-        // Load the task chain if a specific request is pending
+      
         if (requested_state_ != AXIS_STATE_UNDEFINED) {
+	  DEBUG("State change requested", axis_state_to_str(requested_state_));
+
+	  // Load the task chain if a specific request is pending
             size_t pos = 0;
             if (requested_state_ == AXIS_STATE_STARTUP_SEQUENCE) {
                 if (config_.startup_motor_calibration)
@@ -369,7 +394,10 @@ void Axis::run_state_machine_loop() {
         // Run the specified state
         // Handlers should exit if requested_state != AXIS_STATE_UNDEFINED
         bool status;
-        switch (current_state_) {
+
+	DEBUG("Current state", axis_state_to_str(current_state_));
+
+	 switch (current_state_) {
             case AXIS_STATE_MOTOR_CALIBRATION: {
                 status = motor_.run_calibration();
             } break;

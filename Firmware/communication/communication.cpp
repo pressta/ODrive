@@ -76,44 +76,6 @@ static uint32_t test_property = 0;
 // to this length.
 static const size_t debug_max_len = 80;
 
-// Fixed length string buffers for debug printing.
-class FixedStr {
-public:
-  void clear() {
-    pos = 0;
-  }
-
-  void printf(const char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    // size argument to vsnprintf *includes* null byte
-    const size_t free = sizeof(buffer) - pos;
-
-    if (free) {
-      // return value *excludes* null byte (thanks, POSIX).
-      const size_t written = vsnprintf(buffer + pos, free, fmt, args);
-
-      // vsnprintf returns the number of characters that *would* have
-      // been written, which is super useful. Thanks, POSIX. If we see
-      // greater than the number of free chars, then we are out of
-      // space, so just set pos to the end of the buffer.
-      if (written >= free) {
-	pos = sizeof(buffer);
-      } else {
-	// Otherwise, advance the current position
-	pos += written;
-      }
-    }
-    va_end(args);
-  }
-
-  inline const char *as_str() { return buffer; }
-
-private:
-  char buffer[debug_max_len];
-  size_t pos;
-};
-
 struct DebugInfo {
   enum class Type {
     Char,
@@ -121,52 +83,29 @@ struct DebugInfo {
     I32,
     U32,
     F32,
-    MessageStart,
-    MessageEnd
   };
 
   Type tag;
-  void *buffer;
+  const char *prefix;
+  uint32_t time;
+  uint16_t thread;
 
+  // TODO: use variant with C++20 and later.
   union {
     char         as_char;
     const char  *as_str;
     int          as_i32;
     unsigned int as_u32;
     float        as_f32;
-    // XXX: Trim this structure down, since it bloats the size of
-    // DebugInfo, and thereby limits the amount of debug traffic we
-    // can handle.
-    //
-    // Maybe it would make more sense to fold this into the FixedStr
-    // structure.
-    //
-    // TODO: use variant with C++20 and later.
-    struct {
-      const char *file;
-      uint32_t time;
-      int line;
-      void *thread;
-      // TODO: debug level
-    }            as_start;
   } data;
 };
 
 
-// Maximum number of simultaneous in-flight log messages. This should be
-// roughly equal to the number of threads.
-//
-// Defined as macro because static const size_t caused issues with
-// osPoolDef.
-static const size_t debug_max = 6;
-
 // Message queue for passing debug info across threads.
-osMailQDef(debug_queue, 24, DebugInfo);
+// Try increasing this if you get dropped messages.
+osMailQDef(debug_queue, 128, DebugInfo);
 osMailQId debug_queue;
 
-// Memory pool for debug message text.
-osPoolDef(debug_buffers, debug_max, FixedStr);
-osPoolId  debug_buffers;
 
 // Send some data to the log system. 
 //
@@ -176,83 +115,56 @@ osPoolId  debug_buffers;
 // The callable is executed in the calling context, so it is safe to
 // capture values by reference, so long as the callable *itself*
 // copies the values into the info struct.
-template <typename T> DebugToken &DebugToken::debug_impl(T callable) {
-  if (id) {
-    // Allocate a DebugInfo from the pool.
-    auto info = static_cast<DebugInfo *>(osMailAlloc(debug_queue, 0));
-    info->buffer = id;
+template <typename T>
+void debug_impl(const char *prefix, T callable) {
+  // Allocate a DebugInfo from the pool.
+  auto info = static_cast<DebugInfo *>(osMailAlloc(debug_queue, 0));
+  info->prefix = prefix;
+  info->time = osKernelSysTick();
+  info->thread = (uint16_t) reinterpret_cast<size_t>(osThreadGetId());
 
-    if (info) {
-      callable(info);
-      // TODO: panic if invalid tag found here.
-      osMailPut(debug_queue, info);
-    }
+  if (info) {
+    callable(info);
+    // TODO: panic if invalid tag found here.
+    osMailPut(debug_queue, info);
   }
-
-  return *this;
 }
 
 
-
-DebugToken DebugToken::begin(const char *file, int line) {
-  DebugToken ret(osPoolAlloc(debug_buffers));
-
-  if (ret.id) {
-    ret.debug_impl([&] (auto info) {
-      info->tag = DebugInfo::Type::MessageStart;
-      auto &data = info->data.as_start;
-      data.file = file;
-      data.line = line;
-      data.time = osKernelSysTick();
-      data.thread = osThreadGetId();
-    });
-  }
-
-  return ret;
-}
-
-
-DebugToken::~DebugToken() {
-  debug_impl([&] (auto info) {
-    info->tag = DebugInfo::Type::MessageEnd;
-  });
-}
-
-
-DebugToken &DebugToken::operator<<(char value) {
-  return debug_impl([&] (auto info) {
+void DebugToken::debug(const char *prefix, char value) {
+  debug_impl(prefix, [&] (auto info) {
       info->tag = DebugInfo::Type::Char;
       info->data.as_char = value;
   });
 }
 
 
-DebugToken &DebugToken::operator<<(const char *value) {
-  return debug_impl([&] (auto info) {
+void DebugToken::debug(const char *prefix, const char *value) {
+  debug_impl(prefix, [&] (auto info) {
       info->tag = DebugInfo::Type::Str;
       info->data.as_str = value;
   });
 }
 
 
-DebugToken &DebugToken::operator<<(int value) {
-  return debug_impl([&] (auto info) {
+void DebugToken::debug(const char *prefix, int value) {
+  debug_impl(prefix, [&] (auto info) {
       info->tag = DebugInfo::Type::I32;
       info->data.as_i32 = value;
   });
 }
 
 
-DebugToken &DebugToken::operator<<(unsigned int value) {
-  return debug_impl([&] (auto info) {
+void DebugToken::debug(const char *prefix, unsigned int value) {
+  return debug_impl(prefix, [&] (auto info) {
       info->tag = DebugInfo::Type::U32;
       info->data.as_u32 = value;
   });
 }
 
 
-DebugToken &DebugToken::operator<<(float value) {
-  return debug_impl([&] (auto info) {
+void DebugToken::debug(const char *prefix, float value) {
+  return debug_impl(prefix, [&] (auto info) {
       info->tag = DebugInfo::Type::F32;
       info->data.as_f32 = value;
   });
@@ -265,71 +177,43 @@ void DebugToken::loop(void) {
 
     if (event.status == osEventMail) {
       DebugInfo *info = static_cast<DebugInfo *>(event.value.p);
-      if (!info->buffer) {
+      if  (!info) {
+	printf("error: got null debug ptr\n");
 	return;
       }
-
-#ifndef DEBUG_DEBUG
-      FixedStr *buf = static_cast<FixedStr *>(info->buffer);
       auto &data = info->data;
 
       switch (info->tag) {
       case DebugInfo::Type::Char:
-	buf->printf("%c", data.as_char);
+	printf("debug: %4x %8lu %s: %c\n", info->thread, info->time, info->prefix, data.as_char);
 	break;
       case DebugInfo::Type::Str:
-	buf->printf("%s", data.as_str);
+	printf("debug: %4x %8lu %s: %s\n", info->thread, info->time, info->prefix, data.as_str);
 	break;
       case DebugInfo::Type::I32:
-	buf->printf("%d", data.as_i32);
+	printf("debug: %4x %8lu %s: %d\n", info->thread, info->time, info->prefix, data.as_i32);
 	break;
       case DebugInfo::Type::U32:
-	buf->printf("%u", data.as_u32);
+	printf("debug: %4x %8lu %s: %u\n", info->thread, info->time, info->prefix, data.as_u32);
 	break;
       case DebugInfo::Type::F32:
 	// Compiler complains about implicit promotion, hence cast.
-	buf->printf("%f", double(data.as_f32));
-	break;
-      case DebugInfo::Type::MessageStart: {
-	auto &msg_info = data.as_start;
-	buf->clear();
-	buf->printf(
-	  "debug: %p %lu %s %d ",
-	  msg_info.thread,
-	  msg_info.time,
-	  msg_info.file,
-	  msg_info.line
-	);
-	break;
-      }
-      case DebugInfo::Type::MessageEnd:
-	printf("%s\n", buf->as_str());
-	buf->clear();
-	osPoolFree(debug_buffers, info->buffer);
+	printf("debug: %4x %8lu %s: %f\n",
+	       info->thread, info->time, info->prefix, double(data.as_f32));
 	break;
       default:
 	printf("error: invalid type tag (%d)\n", static_cast<int>(info->tag));
 	break;
       }
-#else
-      switch (info->tag) {
-      case DebugInfo::Type::MessageEnd:
-	osPoolFree(debug_buffers, info->buffer);
-	/* fallthrough */
-      default:
-	printf("%p %u\n", info->buffer, static_cast<unsigned int>(info->tag));
-      };
-#endif
       osMailFree(debug_queue, info);
     }
-      // TODO: warn about elided debug messages.
+    // TODO: warn about elided debug messages.
   }
 }
 
 
 void DebugToken::init() {
     debug_queue = osMailCreate(osMailQ(debug_queue), NULL);
-    debug_buffers = osPoolCreate(osPool(debug_buffers));
 }
 
 

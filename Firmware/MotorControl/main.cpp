@@ -186,6 +186,11 @@ int odrive_main(void) {
     // Init communications (this requires the axis objects to be constructed)
     init_communication();
 
+    DEBUG("Test1", 123);
+    DEBUG("Test2", 567.0f);
+    DEBUG("Test3", "hi");
+    DEBUG("Test4", (unsigned int) 890);
+
     // Start pwm-in compare modules
     // must happen after communication is initialized
     pwm_in_init();
