@@ -209,6 +209,7 @@ bool Axis::watchdog_check() {
 
 bool Axis::run_lockin_spin(const LockinConfig_t &lockin_config) {
     // Spiral up current for softer rotor lock-in
+    DEBUG("run_lockin_spin()");
     lockin_state_ = LOCKIN_STATE_RAMP;
     float x = 0.0f;
 
@@ -226,6 +227,10 @@ bool Axis::run_lockin_spin(const LockinConfig_t &lockin_config) {
     float phase = wrap_pm_pi(distance);
     float vel = distance / lockin_config.ramp_time;
 
+    DEBUG("distance", distance);
+    DEBUG("phase", phase);
+    DEBUG("vel", vel);
+
     // Function of states to check if we are done
     auto spin_done = [&](bool vel_override = false) -> bool {
         bool done = false;
@@ -237,6 +242,8 @@ bool Axis::run_lockin_spin(const LockinConfig_t &lockin_config) {
             done = done || encoder_.index_found_;
         return done;
     };
+
+    DEBUG("Accelerating");
 
     // Accelerate
     lockin_state_ = LOCKIN_STATE_ACCELERATE;
@@ -250,8 +257,15 @@ bool Axis::run_lockin_spin(const LockinConfig_t &lockin_config) {
         return !spin_done(true); //vel_override to go to next phase
     });
 
-    if (!encoder_.index_found_)
+    DEBUG("index_found", encoder_.index_found_);
+    if (!encoder_.index_found_) {
         encoder_.set_idx_subscribe(true);
+    }
+
+    DEBUG("distance", distance);
+    DEBUG("phase", phase);
+    DEBUG("vel", vel);
+    DEBUG("Constant speed");
 
     // Constant speed
     if (!spin_done()) {
@@ -266,6 +280,10 @@ bool Axis::run_lockin_spin(const LockinConfig_t &lockin_config) {
             return !spin_done();
         });
     }
+
+    DEBUG("distance", distance);
+    DEBUG("phase", phase);
+    DEBUG("vel", vel);
 
     lockin_state_ = LOCKIN_STATE_INACTIVE;
     return check_for_errors();
@@ -289,8 +307,10 @@ bool Axis::run_sensorless_control_loop() {
 }
 
 bool Axis::run_closed_loop_control_loop() {
+    DEBUG("run_closed_loop_control_loop()");
     // To avoid any transient on startup, we intialize the setpoint to be the current position
     controller_.pos_setpoint_ = encoder_.pos_estimate_;
+    DEBUG("pos_setpoin", controller_.pos_setpoint_);
     set_step_dir_active(config_.enable_step_dir);
     run_control_loop([this](){
         // Note that all estimators are updated in the loop prefix in run_control_loop

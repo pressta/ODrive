@@ -78,6 +78,8 @@ static const size_t debug_max_len = 80;
 
 struct DebugInfo {
   enum class Type {
+    None,
+    Bool,
     Char,
     Str,
     I32,
@@ -92,6 +94,7 @@ struct DebugInfo {
 
   // TODO: use variant with C++20 and later.
   union {
+    bool         as_bool;
     char         as_char;
     const char  *as_str;
     int          as_i32;
@@ -116,10 +119,11 @@ osMailQId debug_queue;
 // capture values by reference, so long as the callable *itself*
 // copies the values into the info struct.
 template <typename T>
-void debug_impl(const char *prefix, T callable) {
+void debug_impl(const char *prefix, const T& callable) {
   // Allocate a DebugInfo from the pool.
   auto info = static_cast<DebugInfo *>(osMailAlloc(debug_queue, 0));
   info->prefix = prefix;
+  // XXX: we should use a milisecond-or-better resolution timer.
   info->time = osKernelSysTick();
   info->thread = (uint16_t) reinterpret_cast<size_t>(osThreadGetId());
 
@@ -128,6 +132,21 @@ void debug_impl(const char *prefix, T callable) {
     // TODO: panic if invalid tag found here.
     osMailPut(debug_queue, info);
   }
+}
+
+
+void DebugToken::debug(const char *prefix) {
+  debug_impl(prefix, [&] (auto info) {
+      info->tag = DebugInfo::Type::None;
+  });
+}
+
+
+void DebugToken::debug(const char *prefix, bool value) {
+  debug_impl(prefix, [&] (auto info) {
+      info->tag = DebugInfo::Type::Bool;
+      info->data.as_bool = value;
+  });
 }
 
 
@@ -184,6 +203,12 @@ void DebugToken::loop(void) {
       auto &data = info->data;
 
       switch (info->tag) {
+      case DebugInfo::Type::None:
+	printf("debug: %4x %8lu %s\n", info->thread, info->time, info->prefix);
+	break;
+      case DebugInfo::Type::Bool:
+	printf("debug: %4x %8lu %s: %s\n", info->thread, info->time, info->prefix, data.as_bool ? "true" : "false");
+	break;
       case DebugInfo::Type::Char:
 	printf("debug: %4x %8lu %s: %c\n", info->thread, info->time, info->prefix, data.as_char);
 	break;

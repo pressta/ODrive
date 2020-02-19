@@ -144,6 +144,7 @@ public:
     // @tparam T Must be a callable type that takes no arguments and returns a bool
     template<typename T>
     void run_control_loop(const T& update_handler) {
+        DEBUG("run_control_loop()");
         while (requested_state_ == AXIS_STATE_UNDEFINED) {
             // look for errors at axis level and also all subcomponents
             bool checks_ok = do_checks();
@@ -157,8 +158,12 @@ public:
             if (!checks_ok || !updates_ok || !watchdog_ok) {
                 // It's not useful to quit idle since that is the safe action
                 // Also leaving idle would rearm the motors
-                if (current_state_ != AXIS_STATE_IDLE)
-                    break;
+	        if (current_state_ != AXIS_STATE_IDLE) {
+ 		    DEBUG("checks_ok", checks_ok);
+		    DEBUG("updates_ok", updates_ok);
+		    DEBUG("watchdog_ok", watchdog_ok);
+		    break;
+	        }
             }
 
             // Run main loop function, defer quitting for after wait
@@ -175,12 +180,16 @@ public:
                 safety_critical_disarm_motor_pwm(motor_);
                 update_brake_current();
                 error_ |= ERROR_CURRENT_MEASUREMENT_TIMEOUT;
+		DEBUG("error: current measurement timeout");
                 break;
             }
 
-            if (!main_continue)
+            if (!main_continue) {
+	      	DEBUG("main_continue", main_continue);
                 break;
+	    }
         }
+	DEBUG("loop_counter", (unsigned int) loop_counter_);
     }
 
     bool run_lockin_spin(const LockinConfig_t &lockin_config);

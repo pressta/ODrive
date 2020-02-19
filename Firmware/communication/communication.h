@@ -13,6 +13,8 @@
 // XXX: rename this class
 class DebugToken {
 public:
+  static void debug(const char *prefix);
+  static void debug(const char *prefix, bool value);
   static void debug(const char *prefix, char value);
   static void debug(const char *prefix, const char *value);
   static void debug(const char *prefix, int value);
@@ -30,7 +32,7 @@ private:
 };
 
 
-#define DEBUG(prefix, value) DebugToken::debug(prefix, value)
+#define DEBUG(prefix, ...) DebugToken::debug(prefix, ##__VA_ARGS__)
 #define TRACE() DEBUG("trace: " __FILE__, __LINE__);
 
 
