@@ -307,10 +307,13 @@ bool Axis::run_sensorless_control_loop() {
 }
 
 bool Axis::run_closed_loop_control_loop() {
-    DEBUG("run_closed_loop_control_loop()");
+    DEBUG("run_closed_loop_control_loop(): enter");
     // To avoid any transient on startup, we intialize the setpoint to be the current position
     controller_.pos_setpoint_ = encoder_.pos_estimate_;
-    DEBUG("pos_setpoin", controller_.pos_setpoint_);
+    DEBUG("pos_setpoint", controller_.pos_setpoint_);
+    DEBUG("vel_setpoint", controller_.vel_setpoint_);
+    DEBUG("current_setpoint", controller_.current_setpoint_);
+
     set_step_dir_active(config_.enable_step_dir);
     run_control_loop([this](){
         // Note that all estimators are updated in the loop prefix in run_control_loop
@@ -322,6 +325,12 @@ bool Axis::run_closed_loop_control_loop() {
             return false; // set_error should update axis.error_
         return true;
     });
+
+    DEBUG("pos_setpoint", controller_.pos_setpoint_);
+    DEBUG("vel_setpoint", controller_.vel_setpoint_);
+    DEBUG("current_setpoint", controller_.current_setpoint_);
+    DEBUG("run_closed_loop_control_loop(): exit");
+
     set_step_dir_active(false);
     return check_for_errors();
 }
