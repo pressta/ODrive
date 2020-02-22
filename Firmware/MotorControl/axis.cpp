@@ -473,7 +473,7 @@ void Axis::run_state_machine_loop() {
 
             case AXIS_STATE_CLOSED_LOOP_CONTROL: {
                 if (!motor_.is_calibrated_ || motor_.config_.direction==0)
-                    goto invalid_state_label;
+		    goto invalid_state_label;
                 if (!encoder_.is_ready_)
                     goto invalid_state_label;
                 status = run_closed_loop_control_loop();

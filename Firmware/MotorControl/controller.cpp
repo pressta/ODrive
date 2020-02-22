@@ -102,7 +102,7 @@ bool Controller::anticogging_calibration(float pos_estimate, float vel_estimate)
     return false;
 }
 
-bool Controller::update(float pos_estimate, float vel_estimate, float* current_setpoint_output) {
+bool Controller::update(float pos_estimate, float vel_estimate, float* current_setpoint_output) { 
     // Only runs if anticogging_.calib_anticogging is true; non-blocking
     anticogging_calibration(pos_estimate, vel_estimate);
     float anticogging_pos = pos_estimate;
@@ -168,10 +168,12 @@ bool Controller::update(float pos_estimate, float vel_estimate, float* current_s
     // Check for overspeed fault (done in this module (controller) for cohesion with vel_lim)
     if (config_.vel_limit_tolerance > 0.0f) { // 0.0f to disable
         if (fabsf(vel_estimate) > config_.vel_limit_tolerance * vel_lim) {
-            set_error(ERROR_OVERSPEED);
-            return false;
+	  set_error(ERROR_OVERSPEED);
+	  return false;
         }
     }
+
+    DEBUG("vel_des", vel_des);
 
     // Velocity control
     float Iq = current_setpoint_;

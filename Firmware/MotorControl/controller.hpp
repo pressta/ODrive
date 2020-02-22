@@ -82,6 +82,7 @@ public:
     // variables exposed on protocol
     float pos_setpoint_ = 0.0f;
     float vel_setpoint_ = 0.0f;
+    float last_vel_setpoint_ = 0.0f;
     // float vel_setpoint = 800.0f; <sensorless example>
     float vel_integrator_current_ = 0.0f;  // [A]
     float current_setpoint_ = 0.0f;        // [A]
