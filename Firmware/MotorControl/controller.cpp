@@ -173,7 +173,7 @@ bool Controller::update(float pos_estimate, float vel_estimate, float* current_s
         }
     }
 
-    if (vel_des > 10000) {
+    if (vel_des > 1000) {
       DEBUG("vel_setpoint_changed", vel_setpoint_);
       DEBUG("vel_des", vel_des);
     }
