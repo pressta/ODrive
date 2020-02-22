@@ -310,6 +310,7 @@ bool Axis::run_closed_loop_control_loop() {
     DEBUG("run_closed_loop_control_loop(): enter");
     // To avoid any transient on startup, we intialize the setpoint to be the current position
     controller_.pos_setpoint_ = encoder_.pos_estimate_;
+    DEBUG("control_mode", controller_.config_.control_mode);
     DEBUG("pos_setpoint", controller_.pos_setpoint_);
     DEBUG("vel_setpoint", controller_.vel_setpoint_);
     DEBUG("current_setpoint", controller_.current_setpoint_);
@@ -326,6 +327,7 @@ bool Axis::run_closed_loop_control_loop() {
         return true;
     });
 
+    DEBUG("control_mode", controller_.config_.control_mode);
     DEBUG("pos_setpoint", controller_.pos_setpoint_);
     DEBUG("vel_setpoint", controller_.vel_setpoint_);
     DEBUG("current_setpoint", controller_.current_setpoint_);

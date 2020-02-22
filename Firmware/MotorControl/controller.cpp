@@ -173,11 +173,6 @@ bool Controller::update(float pos_estimate, float vel_estimate, float* current_s
         }
     }
 
-    if (vel_des > 1000) {
-      DEBUG("vel_setpoint_changed", vel_setpoint_);
-      DEBUG("vel_des", vel_des);
-    }
-
     // Velocity control
     float Iq = current_setpoint_;
 
@@ -222,5 +217,15 @@ bool Controller::update(float pos_estimate, float vel_estimate, float* current_s
     }
 
     if (current_setpoint_output) *current_setpoint_output = Iq;
+    
+    // Log some changing quantities with rate limiting
+    if (debug_count >= 800) {
+      DEBUG("vel_des", vel_des);
+      DEBUG("vel_estimate", vel_estimate);
+      DEBUG("Iq", Iq);
+      debug_count = 0;
+    }
+    debug_count++;
+
     return true;
 }

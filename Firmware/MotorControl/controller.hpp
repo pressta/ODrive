@@ -87,6 +87,7 @@ public:
     float current_setpoint_ = 0.0f;        // [A]
     float vel_ramp_target_ = 0.0f;
     bool vel_ramp_enable_ = false;
+    uint32_t debug_count;
 
     uint32_t traj_start_loop_count_ = 0;
 
