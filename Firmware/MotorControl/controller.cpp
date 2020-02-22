@@ -177,7 +177,6 @@ bool Controller::update(float pos_estimate, float vel_estimate, float* current_s
       DEBUG("vel_setpoint_changed", vel_setpoint_);
       DEBUG("vel_des", vel_des);
     }
-    last_vel_setpoint_ = vel_setpoint_;
 
     // Velocity control
     float Iq = current_setpoint_;
