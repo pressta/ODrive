@@ -198,7 +198,7 @@ void DebugToken::loop(void) {
       DebugInfo *info = static_cast<DebugInfo *>(event.value.p);
       if  (!info) {
 	printf("error: got null debug ptr\n");
-	return;
+	break;
       }
       auto &data = info->data;
 
